@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Library System - Login</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4f46e5">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg,
+        #ff9a9e,
+        #c77dff,
+        #8ec5fc,
+        #ffb3c1,
+        #b5179e
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Main container */
+.login-container {
+    width: 360px;
+    background: rgba(255,255,255,0.96);
+    padding: 26px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+    border: 3px solid transparent;
+    transition: border-color 1s ease;
+}
+
+/* Title */
+.login-container h2 {
+    margin-bottom: 18px;
+}
+
+/* Role buttons */
+.role-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.role-box button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #e5e7eb;
+    font-weight: bold;
+}
+
+.role-box button.active {
+    background: #4f46e5;
+    color: white;
+}
+
+/* Inputs */
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: 2px solid #d1d5db;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.6s ease;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.hidden {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="login-container">
+    <h2>Smart Library System</h2>
+
+    <!-- Role selection -->
+    <div class="role-box">
+        <button type="button" id="studentBtn" onclick="selectRole('student')">Student</button>
+        <button type="button" id="teacherBtn" onclick="selectRole('teacher')">Teacher</button>
+        <button type="button" id="librarianBtn" onclick="selectRole('librarian')">Librarian</button>
+    </div>
+
+    <form id="loginForm">
+
+        <input type="hidden" name="role" id="roleInput">
+
+        <input type="text" name="id" id="id" placeholder="ID" required>
+        <input type="text" name="name" id="name" placeholder="Name" required>
+
+        <input list="deptList" name="department" id="dept" placeholder="Department" class="hidden">
+        <datalist id="deptList">
+            <option value="Computer Science">
+            <option value="AI & ML">
+            <option value="Information Technology">
+            <option value="Electronics">
+            <option value="Mechanical">
+            <option value="Civil">
+        </datalist>
+
+        <select name="year" id="year" class="hidden">
+            <option value="">Select Year</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+        </select>
+
+        <input type="password" name="password" id="password" placeholder="Library Password" required>
+
+        <button class="login-btn" type="submit">Login</button>
+    </form>
+</div>
+
+<script>
+/* ───────── ELEMENTS ───────── */
+const studentBtn = document.getElementById("studentBtn");
+const teacherBtn = document.getElementById("teacherBtn");
+const librarianBtn = document.getElementById("librarianBtn");
+
+const dept = document.getElementById("dept");
+const year = document.getElementById("year");
+const roleInput = document.getElementById("roleInput");
+const form = document.getElementById("loginForm");
+
+/* ───────── ROLE LOGIC ───────── */
+function selectRole(role) {
+    console.log("Role selected:", role); // 🔍 DEBUG
+
+    roleInput.value = role;
+
+    studentBtn.classList.remove("active");
+    teacherBtn.classList.remove("active");
+    librarianBtn.classList.remove("active");
+
+    dept.classList.add("hidden");
+    year.classList.add("hidden");
+
+    if (role === "student") {
+        studentBtn.classList.add("active");
+        dept.classList.remove("hidden");
+        year.classList.remove("hidden");
+    }
+
+    if (role === "teacher") {
+        teacherBtn.classList.add("active");
+        dept.classList.remove("hidden");
+    }
+
+    if (role === "librarian") {
+        librarianBtn.classList.add("active");
+    }
+}
+
+/* DEFAULT ROLE */
+window.onload = () => {
+    selectRole("student");
+};
+
+/* ───────── LOGIN SUBMIT ───────── */
+form.addEventListener("submit", async (e) => {
+    e.preventDefault(); // 🔥 STOP POST TO /
+
+    console.log("Submitting login with role:", roleInput.value);
+
+    if (!roleInput.value) {
+        alert("Please select a role");
+        return;
+    }
+
+    const payload = {
+        role: roleInput.value,
+        id: document.getElementById("id").value,
+        password: document.getElementById("password").value
+    };
+
+    const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload)
+});
+
+
+    const data = await res.json();
+
+if (data.status === "success") {
+    localStorage.setItem("user", JSON.stringify(data.user));
+    localStorage.setItem("user_id", data.user.id); // for APIs
+
+    if (data.user.role === "librarian") {
+        window.location.href = "/librarian";
+    } else {
+        window.location.href = "/dashboard";
+    }
+}
+ else {
+        alert("Invalid credentials");
+    }
+});
+</script>
+
+</body>
+</html>

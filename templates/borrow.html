@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Borrow Book</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg,
+        #ff9a9e,
+        #c77dff,
+        #8ec5fc,
+        #ffb3c1,
+        #b5179e
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Main container */
+.borrow-container {
+    width: 440px;
+    background: rgba(255,255,255,0.96);
+    padding: 26px;
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+}
+
+.borrow-container h2 {
+    text-align: center;
+    margin-bottom: 18px;
+}
+
+/* Buttons */
+.btn {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 22px;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+}
+
+.scan-btn {
+    background: #4f46e5;
+    color: white;
+}
+
+.type-btn {
+    background: #e5e7eb;
+}
+
+/* Camera box — FIXED */
+.camera-box {
+    display: none;                 /* IMPORTANT: hidden by default */
+    margin-top: 16px;
+    height: 220px;
+    background: #e5e7eb;
+    border-radius: 14px;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 14px;
+}
+
+/* Manual input */
+input {
+    display: none;
+    width: 100%;
+    padding: 12px;
+    margin-top: 14px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+}
+
+/* Book details */
+.details-box {
+    display: none;
+    margin-top: 16px;
+    padding: 14px;
+    background: #f3f4f6;
+    border-radius: 12px;
+}
+
+.details-box p {
+    margin: 6px 0;
+}
+
+/* Confirm */
+.confirm-btn {
+    display: none;
+    background: #22c55e;
+    color: white;
+}
+
+/* Status */
+.status {
+    display: none;
+    margin-top: 16px;
+    padding: 14px;
+    background: #e0e7ff;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div class="borrow-container">
+    <h2>Borrow Book</h2>
+
+    <!-- Options -->
+    <button class="btn scan-btn" onclick="startScan()">Scan QR</button>
+    <button class="btn type-btn" onclick="startManual()">Enter QR / Barcode</button>
+
+    <!-- Camera -->
+    <div class="camera-box" id="qr-reader"></div>
+
+
+
+    <!-- Manual input -->
+    <input type="text" id="qrInput" placeholder="Enter QR / Barcode">
+
+    <!-- Book details -->
+    <div class="details-box" id="detailsBox">
+        <p><b>Book:</b> <span id="bookName"></span></p>
+        <p><b>Copy ID:</b> <span id="copyId"></span></p>
+        <p><b>Status:</b> Available</p>
+    </div>
+
+    <!-- Confirm -->
+    <button class="btn confirm-btn" id="confirmBtn" onclick="confirmBorrow()">
+        Confirm Borrow
+    </button>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+// Session check
+fetch("/api/me", { credentials: "include" })
+.then(r => {
+    if (r.status === 401) {
+        window.location.href = "/";
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+
+const qrReader = document.getElementById("qr-reader");
+const qrInput = document.getElementById("qrInput");
+const detailsBox = document.getElementById("detailsBox");
+const confirmBtn = document.getElementById("confirmBtn");
+
+let html5QrCode = null;
+
+function resetUI() {
+    qrReader.style.display = "none";
+    qrInput.style.display = "none";
+    detailsBox.style.display = "none";
+    confirmBtn.style.display = "none";
+
+    if (html5QrCode) {
+        html5QrCode.stop().catch(()=>{});
+        html5QrCode = null;
+    }
+}
+
+window.startScan = function () {
+    resetUI();
+    qrReader.style.display = "block";
+
+    html5QrCode = new Html5Qrcode("qr-reader");
+
+    Html5Qrcode.getCameras().then(cameras => {
+        if (!cameras.length) {
+            alert("No camera found");
+            return;
+        }
+
+        html5QrCode.start(
+            cameras[0].id,
+            { fps: 10, qrbox: 220 },
+            qrCode => {
+                html5QrCode.stop();
+                showDetails(qrCode);
+            }
+        );
+    });
+}
+
+window.startManual = function () {
+    resetUI();
+    qrInput.style.display = "block";
+    qrInput.focus();
+}
+
+qrInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && qrInput.value.trim()) {
+        showDetails(qrInput.value.trim());
+    }
+});
+
+function showDetails(qrCode) {
+    fetch(`/api/book-by-qr/${qrCode}`, { credentials: "include" })
+    .then(r => r.json())
+    .then(b => {
+        if (b.error) {
+            alert("Invalid QR");
+            return;
+        }
+
+        document.getElementById("bookName").innerText = b.title;
+        document.getElementById("copyId").innerText = qrCode;
+
+        detailsBox.style.display = "block";
+        confirmBtn.style.display = "block";
+    });
+}
+
+window.confirmBorrow = function () {
+    const qr = document.getElementById("copyId").innerText;
+
+    fetch("/api/borrow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ qr_code: qr })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === "borrowed") {
+            window.location.href = "/detail";
+        } else {
+            alert(d.error || "Borrow failed");
+        }
+    });
+}
+
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Library System</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg,
+        #ff9a9e,#c77dff,#8ec5fc,#ffb3c1,#b5179e);
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+    min-height: 100vh;
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ───────── TOP BAR ───────── */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 30px;
+    color: white;
+}
+
+.icons {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+
+.icon-btn {
+    position: relative;
+    cursor: pointer;
+}
+.icon-btn svg {
+    width: 26px;
+    height: 26px;
+    fill: white;
+}
+.icon-btn:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+/* SEARCH */
+.search-wrapper {
+    display: flex;
+    align-items: center;
+}
+.search-bar {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.4s ease;
+}
+.search-inner {
+    background: white;
+    border-radius: 24px;
+    padding: 6px 12px;
+    margin-left: 10px;
+}
+.search-inner input {
+    width: 360px;
+    border: none;
+    outline: none;
+}
+
+/* ───────── BOOK GRID ───────── */
+.books-container {
+    padding: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 22px;
+}
+
+.book-card {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+.book-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.25);
+}
+
+.book-image {
+    height: 200px;
+    width: 100%;
+    border-radius: 14px;
+    background-size: cover;
+    background-position: center;
+}
+
+.book-name { font-weight: bold; }
+.book-stock { font-size: 13px; color: #444; }
+
+/* ───────── MODAL ───────── */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: linear-gradient(135deg,#8ec5fc,#c77dff);
+    border-radius: 18px;
+    width: 520px;
+    padding: 22px;
+    display: flex;
+    gap: 20px;
+    color: white;
+}
+
+.modal-image {
+    height: 220px;
+    width: 160px;
+    min-width: 160px;
+    background-size: cover;
+    background-position: center;
+}
+
+.modal-info button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.borrow-btn { background: #22c55e; }
+.prebook-btn { background: #fde68a; }
+.cancel-btn { background: #f87171; color: white; }
+
+.borrow-btn:hover,
+.prebook-btn:hover,
+.cancel-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.4);
+}
+</style>
+</head>
+
+<body>
+
+<div class="top-bar">
+    <h2>Smart Library System</h2>
+
+    <div class="icons">
+        <div class="search-wrapper"
+             onmouseenter="openSearch()"
+             onmouseleave="closeSearch()">
+            <div class="icon-btn" data-tip="Search">
+                <svg viewBox="0 0 24 24">
+                    <path d="M10 2a8 8 0 105.293 14.293l4.707 4.707
+                             1.414-1.414-4.707-4.707A8 8 0 0010 2z"/>
+                </svg>
+            </div>
+            <div class="search-bar" id="searchBar">
+                <div class="search-inner">
+                    <input id="searchInput" placeholder="Search books...">
+                </div>
+            </div>
+        </div>
+
+        <div class="icon-btn" data-tip="Details" onclick="goToDetailPage()">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<div class="books-container" id="booksContainer"></div>
+
+<div class="modal" id="modal" onclick="outsideClose(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-info">
+            <h3 id="mTitle"></h3>
+            <p><b>Author:</b> <span id="mAuthor"></span></p>
+            <p><b>Stock:</b> <span id="mStock"></span></p>
+            <p id="mDesc"></p>
+
+            <button class="borrow-btn">Borrow</button>
+            <button class="prebook-btn">Pre-Book</button>
+            <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+        </div>
+        <div class="modal-image" id="mImage"></div>
+    </div>
+</div>
+<div class="icon-btn" data-tip="Profile" onclick="openProfile()">
+    <svg viewBox="0 0 24 24">
+        <path d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2
+                 c-4.33 0-8 2.17-8 5v1h16v-1
+                 c0-2.83-3.67-5-8-5z"/>
+    </svg>
+</div>
+<div class="modal" id="profileModal" onclick="closeProfile(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-info">
+            <h3>User Profile</h3>
+            <p><b>Name:</b> <span id="pName"></span></p>
+            <p><b>ID:</b> <span id="pId"></span></p>
+            <p><b>Role:</b> <span id="pRole"></span></p>
+            <p><b>Department:</b> <span id="pDept"></span></p>
+            <p><b>Year:</b> <span id="pYear"></span></p>
+            <button class="cancel-btn" onclick="hideProfile()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ───────── SESSION CHECK ───────── */
+fetch("/api/me", { credentials: "include" })
+.then(r => {
+    if (r.status === 401) {
+        window.location.href = "/";   // back to login
+    }
+});
+
+/* ───────── GLOBAL STATE ───────── */
+let prebookTimer = null;
+let selectedBookId = null;
+
+const API = window.location.origin;
+const CURRENT_USER_ID = localStorage.getItem("user_id");
+
+/* ───────── DOM REFERENCES ───────── */
+const container = document.getElementById("booksContainer");
+const searchInput = document.getElementById("searchInput");
+const searchBar = document.getElementById("searchBar");
+
+const modal = document.getElementById("modal");
+const mTitle = document.getElementById("mTitle");
+const mAuthor = document.getElementById("mAuthor");
+const mStock = document.getElementById("mStock");
+const mDesc = document.getElementById("mDesc");
+const mImage = document.getElementById("mImage");
+
+/* ───────── PREBOOK INFO (ONE INSTANCE ONLY) ───────── */
+const prebookInfo = document.createElement("p");
+prebookInfo.style.marginTop = "10px";
+prebookInfo.style.fontWeight = "bold";
+document.querySelector(".modal-info").appendChild(prebookInfo);
+
+/* ───────── DATA ───────── */
+let allBooks = [];
+
+/* ───────── UI HELPERS ───────── */
+function openSearch(){ searchBar.style.width = "400px"; }
+function closeSearch(){ searchBar.style.width = "0"; }
+function goToDetailPage(){ location.href = "/detail"; }
+
+/* ───────── LOAD BOOKS ───────── */
+fetch(`${API}/api/books`, { credentials: "include" })
+.then(r => r.json())
+.then(d => {
+    allBooks = d;
+    renderBooks(d);
+});
+
+/* ───────── RENDER BOOK CARDS ───────── */
+function renderBooks(list){
+    container.innerHTML = "";
+    list.forEach(b => {
+        const c = document.createElement("div");
+        c.className = "book-card";
+        c.onclick = () => openModal(b.id);
+        c.innerHTML = `
+            <div class="book-image" style="background-image:url('${b.cover}')"></div>
+            <div class="book-name">${b.title}</div>
+            <div class="book-stock">Available: ${b.available}</div>
+        `;
+        container.appendChild(c);
+    });
+}
+
+/* ───────── SEARCH ───────── */
+searchInput.addEventListener("input", () => {
+    const q = searchInput.value.toLowerCase();
+    renderBooks(
+        allBooks.filter(b => b.title.toLowerCase().includes(q))
+    );
+});
+
+/* ───────── OPEN MODAL ───────── */
+function openModal(id){
+    selectedBookId = id;
+
+    if (prebookTimer) {
+        clearInterval(prebookTimer);
+        prebookTimer = null;
+    }
+    prebookInfo.textContent = "";
+
+    fetch(`${API}/api/book/${id}`, { credentials: "include" })
+    .then(r => r.json())
+    .then(b => {
+        mTitle.textContent = b.title;
+        mAuthor.textContent = b.author;
+        mStock.textContent = b.available;
+        mDesc.textContent = b.description;
+
+        mImage.style.backgroundImage = "none";
+        setTimeout(() => {
+            mImage.style.backgroundImage = `url('${b.cover}')`;
+        }, 10);
+
+        modal.style.display = "flex";
+
+        fetch(`${API}/api/my-prebook/${id}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(p => {
+            if (p.qr) {
+                prebookInfo.innerHTML = `
+                    🔒 Your reserved copy: <b>${p.qr}</b><br>
+                    ⏳ Time left: <span id="timer"></span>
+                `;
+                startCountdown(p.expires_at);
+            }
+        });
+
+        document.querySelector(".borrow-btn").onclick = borrowBook;
+        document.querySelector(".prebook-btn").onclick = prebookBook;
+    });
+}
+
+/* ───────── MODAL CLOSE ───────── */
+function closeModal(){
+    if (prebookTimer) {
+        clearInterval(prebookTimer);
+        prebookTimer = null;
+    }
+    modal.style.display = "none";
+}
+
+function outsideClose(e){
+    if(e.target === modal) closeModal();
+}
+
+/* ───────── ACTIONS ───────── */
+function borrowBook(){
+    location.href = `/borrow?book_id=${selectedBookId}`;
+}
+
+function prebookBook(){
+    fetch(`${API}/api/prebook/${selectedBookId}`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials: "include"
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.error){
+            alert(d.error);
+            return;
+        }
+        mStock.textContent = parseInt(mStock.textContent) - 1;
+        startCountdown(d.expires_at);
+    });
+}
+
+/* ───────── COUNTDOWN TIMER ───────── */
+function startCountdown(expiry){
+    if (prebookTimer) clearInterval(prebookTimer);
+
+    const end = new Date(expiry).getTime();
+
+    prebookTimer = setInterval(() => {
+        const diff = end - Date.now();
+
+        if (diff <= 0){
+            prebookInfo.textContent = "Prebook expired";
+            clearInterval(prebookTimer);
+            prebookTimer = null;
+            return;
+        }
+
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+
+        const timer = document.getElementById("timer");
+        if (timer) {
+            timer.textContent = `${m}:${String(s).padStart(2,"0")}`;
+        }
+    }, 1000);
+}
+
+/* ───────── PROFILE ───────── */
+function openProfile() {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user) {
+        alert("Not logged in");
+        return;
+    }
+
+    document.getElementById("pName").innerText = user.name;
+    document.getElementById("pId").innerText = user.id;
+    document.getElementById("pRole").innerText = user.role;
+    document.getElementById("pDept").innerText = user.department || "-";
+    document.getElementById("pYear").innerText = user.year || "-";
+
+    document.getElementById("profileModal").style.display = "flex";
+}
+
+function hideProfile() {
+    document.getElementById("profileModal").style.display = "none";
+}
+
+function closeProfile(e) {
+    if (e.target.id === "profileModal") hideProfile();
+}
+</script>
+
+
+</body>
+</html>

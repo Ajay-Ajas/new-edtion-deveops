@@ -56,6 +56,11 @@ login_service = LoginService(db)
 @app.route("/")
 def home():
     return render_template("login.html")
+@app.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect("/")
+    return render_template("main.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0",port=5000)

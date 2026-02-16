@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Borrow Details</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6d28d9">
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(120deg,
+        #ff9a9e,
+        #c77dff,
+        #8ec5fc,
+        #ffb3c1,
+        #b5179e
+    );
+    background-size: 400% 400%;
+    animation: gradientMove 12s ease infinite;
+    min-height: 100vh;
+    color: #000; /* GLOBAL TEXT COLOR */
+}
+
+@keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Header */
+.header {
+    padding: 16px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-title {
+    font-size: 30px;
+    font-weight: bold;
+    color: #FFFFFF;
+}
+
+/* Menu */
+.menu {
+    font-size: 22px;
+    cursor: pointer;
+    position: relative;
+    color: #000;
+}
+
+.menu-box {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 28px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    overflow: hidden;
+    z-index: 50;
+}
+
+.menu-box div {
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #000;
+}
+
+.menu-box div:hover {
+    background: #f3f4f6;
+}
+
+/* User info */
+.user-info {
+    max-width: 900px;
+    margin: 12px auto;
+    padding: 12px 18px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    font-size: 14px;
+    color: #000;
+}
+
+.user-info span {
+    margin-right: 16px;
+}
+
+/* Tickets */
+.tickets {
+    max-width: 900px;
+    margin: auto;
+    padding: 10px 20px 30px;
+}
+
+.ticket {
+    background: rgba(255,255,255,0.95);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    color: #000;
+}
+
+.ticket-details p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #000;
+}
+
+.overdue {
+    color: red;
+    font-weight: bold;
+}
+
+/* QR */
+.qr-box {
+    width: 100px;
+    height: 100px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #000;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Header -->
+<div class="header">
+    <div class="header-title">Smart Library System</div>
+    <div class="menu" onclick="toggleMenu()">⋮
+        <div class="menu-box" id="menuBox">
+            <div>Borrowed Books</div>
+            <div>Returned Books</div>
+            <div onclick="location.href='return.html'">Return Book</div>
+            <div>Due / Fine Details</div>
+            <div onclick="location.href='login.html'">Logout</div>
+        </div>
+    </div>
+</div>
+
+<!-- User info (DB-loaded later) -->
+<div class="user-info">
+</div>
+
+<!-- Tickets (DB-loaded later) -->
+<div class="tickets"></div>
+
+<script>
+
+function toggleMenu() {
+    const menu = document.getElementById("menuBox");
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+document.addEventListener("click", e => {
+    if (!e.target.closest(".menu")) {
+        document.getElementById("menuBox").style.display = "none";
+    }
+});
+
+// Load user info
+// Load user info
+fetch("/api/me", { credentials: "include" })
+.then(r => r.json())
+.then(u => {
+    document.querySelector(".user-info").innerHTML = `
+        <span><b>Name:</b> ${u.name}</span>
+        <span><b>ID:</b> ${u.id}</span>
+        <span><b>Role:</b> ${u.role}</span>
+    `;
+});
+
+
+// Load all history by default
+loadHistory("/api/history");
+
+function formatDate(dtStr) {
+    if (!dtStr) return "";
+    const d = new Date(dtStr);
+    return d.toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+    });
+}
+
+function loadHistory(url) {
+    fetch(url)
+    .then(r => r.json())
+    .then(data => {
+        const box = document.querySelector(".tickets");
+        box.innerHTML = "";
+
+        if (!data || data.length === 0) {
+            box.innerHTML = "<p style='text-align:center'>No records found</p>";
+            return;
+        }
+
+        data.forEach(row => {
+            let title, qr, borrowed, due, returned, fine = null;
+
+            // Overdue API returns object, others return tuple
+            if (url.includes("overdue")) {
+                title = row.title;
+                qr = row.qr;
+                due = row.due;
+                fine = row.fine;
+            } else {
+                title = row[0];
+                qr = row[1];
+                borrowed = row[2];
+                due = row[3];
+                returned = row[4];
+            }
+
+            let overdueClass = "";
+            let statusText = "Active";
+
+            if (!returned && due && new Date(due) < new Date()) {
+                overdueClass = "overdue";
+                statusText = "Overdue";
+            }
+
+            let borrowedFmt = formatDate(borrowed);
+            let dueFmt = formatDate(due);
+            let returnedFmt = formatDate(returned);
+
+            box.innerHTML += `
+                <div class="ticket">
+                    <div class="ticket-details">
+                        <p><b>QR:</b> ${qr}</p>
+                        <p><b>Book:</b> ${title}</p>
+                        ${borrowed ? `<p><b>Borrowed:</b> ${borrowedFmt}</p>` : ""}
+                        <p class="${overdueClass}">
+                            <b>${returned ? "Returned On" : "Return By"}:</b> ${returned ? returnedFmt : dueFmt}
+                        </p>
+                        ${fine !== null ? `<p class="overdue"><b>Fine:</b> ₹${fine}</p>` : ""}
+                    </div>
+                    <div class="qr-box">${returned ? "Returned" : statusText}</div>
+                </div>
+            `;
+        });
+    });
+}
+
+// Default: show full history
+loadHistory("/api/history");
+loadPrebookTickets();
+
+function loadPrebookTickets() {
+    fetch("/api/my-prebooks", { credentials: "include" })
+    .then(r => r.json())
+    .then(data => {
+
+        if (!data || data.length === 0) return;
+
+        const box = document.querySelector(".tickets");
+
+        data.forEach(p => {
+
+            box.innerHTML = `
+                <div class="ticket" style="border-left:6px solid #facc15">
+                    <div class="ticket-details">
+                        <p><b>PREBOOKED COPY</b></p>
+                        <p><b>QR:</b> ${p.qr}</p>
+                        <p><b>Book:</b> ${p.title}</p>
+                        <p><b>Expires:</b> ${formatDate(p.expires_at)}</p>
+                    </div>
+                    <div class="qr-box">Reserved</div>
+                </div>
+            ` + box.innerHTML;
+
+        });
+
+    });
+}
+
+
+// Menu actions
+document.querySelectorAll(".menu-box div")[0].onclick = () => loadHistory("/api/borrowed");
+document.querySelectorAll(".menu-box div")[1].onclick = () => loadHistory("/api/returned");
+document.querySelectorAll(".menu-box div")[3].onclick = () => loadHistory("/api/overdue");
+document.querySelectorAll(".menu-box div")[4].onclick = () => window.location.href = "/login";
+// Logout
+document.querySelectorAll(".menu-box div")[4].onclick = () => {
+    window.location.href = "/login";
+};
+</script>
+
+</body>
+</html>

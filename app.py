@@ -1,10 +1,19 @@
 from flask import Flask, jsonify, render_template, request, session, redirect
 import sqlite3
 from datetime import datetime, timedelta
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "smartlibrary_secret_key"
+# =========================================================
+# PROMETHEUS METRICS
+# =========================================================
+metrics = PrometheusMetrics(app)
+metrics.info('smart_library_app', 'Application Info', version='1.0')
+
 DB = "library.db"
+
 
 # =========================================================
 # MODEL LAYER
